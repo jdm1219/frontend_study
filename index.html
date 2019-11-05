@@ -58,21 +58,27 @@
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 <script>
     
+    // FIXME imgURL을 모듈 외부에 선언 후 모듈 내부에서 참조하는 것 보다는, 모듈의 파라미터로 넣어주시면 더 좋을 것 같습니다 - 모듈 격리
     let imgURL = 'https://my-json-server.typicode.com/it-crafts/mockapi/timeline'
     // let imgURL = 'http://localhost/timeline'
     
-
+    // TODO templateEngine이 절차지향 로직입니다. 의미있는 단위로 나누어서 서브모듈로 쪼개면 더 좋을 것 같습니다.
     async function templateEngine(el){
         document.querySelector('._4emnV').style.display = 'block'
         let _el = document.querySelector(el);
         let html = _el.innerHTML.replace(/>(?:\t|\n|\r| )+</g,'><');
         _el.innerHTML = '';
+        // TODO 모듈 재사용을 위해, 데이터를 templateEngine 외부에서 받아오고, 모듈에 파라미터로 넣어주시면 더 좋을 것 같습니다
+        // TODO res에서 data만 사용하면, 다음과 같이 작성하면 더 좋을 것 같습니다
+        // let {data} = await axios.get(imgURL)
         let res = await axios.get(imgURL)
+        // FIXME data가 다건이 아닌 단건인 케이스에 대한 예외처리가 필요해 보입니다
         res.data.forEach(item => {
             let keys = Object.keys(item)
             let _html = html
             keys.forEach(key => {
                 let matcher = new RegExp('{{ *' + key + ' *}}', 'g')
+                // TODO item에 해당 key가 없는 경우, undefined가 들어갑니다 - 방어로직 필요해 보입니다
                 _html = _html.replace(matcher,item[key])
             })
             _el.innerHTML += _html;
@@ -80,6 +86,8 @@
         document.querySelector('._4emnV').style.display = 'none'
     }
     templateEngine('#app')
+    // FIXME append에 대한 고려가 안 되어 있습니다. 로직 추가 해주세요.
+    // templateEngine('#app') // 컨텐츠 추가 불가능, 기존 컨텐츠 제거 후 재렌더링 됨
 </script>
 <!-- 뷰모델 종료 -->
 
