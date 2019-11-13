@@ -58,36 +58,81 @@
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 <script>
     
-    // FIXME imgURL을 모듈 외부에 선언 후 모듈 내부에서 참조하는 것 보다는, 모듈의 파라미터로 넣어주시면 더 좋을 것 같습니다 - 모듈 격리
-    let imgURL = 'https://my-json-server.typicode.com/it-crafts/mockapi/timeline'
-    // let imgURL = 'http://localhost/timeline'
-    
-    // TODO templateEngine이 절차지향 로직입니다. 의미있는 단위로 나누어서 서브모듈로 쪼개면 더 좋을 것 같습니다.
-    async function templateEngine(el){
-        document.querySelector('._4emnV').style.display = 'block'
-        let _el = document.querySelector(el);
-        let html = _el.innerHTML.replace(/>(?:\t|\n|\r| )+</g,'><');
-        _el.innerHTML = '';
-        // TODO 모듈 재사용을 위해, 데이터를 templateEngine 외부에서 받아오고, 모듈에 파라미터로 넣어주시면 더 좋을 것 같습니다
-        // TODO res에서 data만 사용하면, 다음과 같이 작성하면 더 좋을 것 같습니다
-        // let {data} = await axios.get(imgURL)
-        let res = await axios.get(imgURL)
-        // FIXME data가 다건이 아닌 단건인 케이스에 대한 예외처리가 필요해 보입니다
-        res.data.forEach(item => {
-            let keys = Object.keys(item)
-            let _html = html
-            keys.forEach(key => {
-                let matcher = new RegExp('{{ *' + key + ' *}}', 'g')
-                // TODO item에 해당 key가 없는 경우, undefined가 들어갑니다 - 방어로직 필요해 보입니다
-                _html = _html.replace(matcher,item[key])
-            })
-            _el.innerHTML += _html;
-        });
-        document.querySelector('._4emnV').style.display = 'none'
+const timeline = (function(){
+    const _loading = document.querySelector('._4emnV');
+    const url = 'https://my-json-server.typicode.com/it-crafts/mockapi/timeline/';
+    const _el = document.querySelector('#app');
+    const template = _el.innerHTML.replace(/>(?:\t|\n|\r| )+</g,'><');
+    let _page;
+    let info;
+
+    const model = async function(){
+        let {data} = await axios.get(url + _page++);
+        let list = data.data.map(el => el.reduce((o,v,i) => (o[`src${i+1}`] = v, o),{}));
+        return list
     }
-    templateEngine('#app')
-    // FIXME append에 대한 고려가 안 되어 있습니다. 로직 추가 해주세요.
-    // templateEngine('#app') // 컨텐츠 추가 불가능, 기존 컨텐츠 제거 후 재렌더링 됨
+
+    const view = function(list){
+        let html = '';
+        list.forEach(data => html += template.replace(/{{ *(\w+) *}}/g, (m, key) => data[key] || ''));
+        _el.innerHTML += html;
+    }
+
+    const viewModel = async function(){
+        _loading.style.display = '';
+        view(await model());
+        _loading.style.display = 'none';
+    }
+
+    const handler = async function(){
+        // console.log(document.querySelector('main').offsetHeight - 200,pageYOffset + document.offsetHeight )
+        if(pageYOffset + document.scrollingElement.offsetHeight < document.querySelector('footer').offsetTop - 200) return
+        if(_loading.style.display === '') return
+        if(!info.totalPage) return
+        await viewModel();
+        if(info.totalPage && _page>info.totalPage) removeEvent()
+    }
+    
+
+    const removeEvent = function(){
+        window.removeEventListener('scroll',handler);
+    }
+
+    const create = function(){
+        _el.innerHTML = '';
+        _page = 1;
+        info = {};
+        axios.get(url+'info').then(res => info = res.data.data);
+        window.addEventListener('scroll',handler);
+        viewModel();
+    }
+
+    const destroy = function(){
+        _el.innerHTML = '';
+        removeEvent();
+    }
+
+    create();
+
+    return {
+        destroy: destroy,
+        create: create
+    }
+})()
+
+const root = (function(){
+
+
+    const handler = function(){
+        timeline.destroy();
+        timeline.create();
+    }
+
+    document.querySelectorAll('.fx7hk > a').forEach(el => {
+        el.addEventListener('click',handler)
+    })
+})()
+
 </script>
 <!-- 뷰모델 종료 -->
 

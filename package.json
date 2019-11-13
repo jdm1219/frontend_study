@@ -1,0 +1,7 @@
+{
+    "name": "frontend_study",
+    "version": "1.0.0",
+    "scripts": {
+        "start": "json-server --watch db.json --port 80"
+    }
+}
