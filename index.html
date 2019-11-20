@@ -57,88 +57,113 @@
 <!-- 뷰모델 시작 -->
 <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 <script>
-// TODO 확인결과, 성능과 구조가 매우 준수합니다. 현재와 같은 퀄리티 유지하면 좋을 것 같습니다.
 
-const timeline = (function(){
+const Timeline = function(){
     const _loading = document.querySelector('._4emnV');
     const url = 'https://my-json-server.typicode.com/it-crafts/mockapi/timeline/';
     const _el = document.querySelector('#app');
+    const _footer = document.querySelector('footer')
     const template = _el.innerHTML.replace(/>(?:\t|\n|\r| )+</g,'><');
-    let _page;
-    let info;
+    let _page = 1;
+    let info = {};
 
-    const create = function(){
+    const create = async function(){
+        controller();
+        await model.getTimelineInfo()
+        if(info.totalPage===1) { return; }
+        addEvent();
+    }
+
+    const model = (() => {
+        const getTimeline = async function(){
+            try {
+                let {data} = await axios.get(url + _page);
+                _page++;
+                let list = data.data.map(el => el.reduce((o,v,i) => (o[`src${i+1}`] = v, o),{}));
+                return list;
+            } catch (e) {
+                return [];
+            }
+        }
+        const getTimelineInfo = async function(){
+            try {
+                const {data} = await axios.get(url+'info');
+                info = data.data;
+            } catch (e) {
+                info.totalPage = 1;
+            }
+        }
+
+        return {
+            getTimeline: getTimeline,
+            getTimelineInfo: getTimelineInfo            
+        }
+    })();
+
+    const view = (() => {
         _el.innerHTML = '';
-        _page = 1;
-        info = {};
-        axios.get(url+'info').then(res => info = res.data.data);
-        window.addEventListener('scroll',handler);
-        viewModel();
-    }
 
-    const model = async function(){
-        // TODO 요청이 실패했을 경우, page만 늘어납니다 - _page 자체값 증가는 통신성공 이후에 따로 해주세요
-        let {data} = await axios.get(url + _page++);
-        let list = data.data.map(el => el.reduce((o,v,i) => (o[`src${i+1}`] = v, o),{}));
-        return list
-    }
+        const render = function(list){
+            let html = '';
+            list.forEach(data => html += template.replace(/{{ *(\w+) *}}/g, (m, key) => data[key] || ''));
+            _el.innerHTML += html;
+        }
 
-    const view = function(list){
-        let html = '';
-        list.forEach(data => html += template.replace(/{{ *(\w+) *}}/g, (m, key) => data[key] || ''));
-        _el.innerHTML += html;
-    }
+        return {
+            render: render
+        }
+    })();
 
-    // TODO 현재는 viewModel 보다는 controller에 가깝게 동작하고 있습니다 - 메소드명 변경 또는 로직 변경
-    const viewModel = async function(){
+    const controller = async function(){
         _loading.style.display = '';
-        view(await model());
+        view.render(await model.getTimeline());
         _loading.style.display = 'none';
     }
 
     const handler = async function(){
-        // console.log(document.querySelector('main').offsetHeight - 200,pageYOffset + document.offsetHeight )
-        // TODO document.querySelector('footer')의 DOM탐색이 반복적으로 일어나고 있습니다 - _el처럼 모듈 내부에서 DOM객체를 캐싱 해주세요
-        if(pageYOffset + document.scrollingElement.offsetHeight < document.querySelector('footer').offsetTop - 200) return
-        if(_loading.style.display === '') return
-        // XXX 무엇을 의도한 if문인가요?
-        if(!info.totalPage) return
-        await viewModel();
-        if(info.totalPage && _page>info.totalPage) removeEvent()
+        if(pageYOffset + document.scrollingElement.offsetHeight < _footer.offsetTop - 200) { return; }
+        if(_loading.style.display === '') { return; }
+        await controller();
+        if(_page>info.totalPage) removeEvent();
     }
     
+    const addEvent = function(){
+        window.addEventListener('scroll',handler);
+    }
 
     const removeEvent = function(){
         window.removeEventListener('scroll',handler);
     }
 
     const destroy = function(){
-        _el.innerHTML = '';
+
         removeEvent();
     }
 
     create();
 
     return {
-        destroy: destroy,
-        create: create
+        destroy: destroy
     }
-})()
+};
 
 const root = (function(){
+    const _loading = document.querySelector('._4emnV');
+    let _page = new Timeline();
 
-
-    const handler = function(){
-        // TODO 현재 create, destroy의 내부로직이 각각 create, destroy로 동작하기 보다는, 둘이 합쳐 init처럼 동작하고 있습니다 - 메소드명을 바꾸거나, 이름에 맞게 로직을 바꿔주세요
-        timeline.destroy();
-        timeline.create();
+    const handler =  function() {
+        if('' == _loading.style.display) { return; }
+        _loading.style.display = '';
+        _page.destroy();
+        // _page = null;
+        _page = new Timeline();
+        _loading.style.display = 'none';
     }
 
-    // FIXME 버튼클릭 시에도 pending 상태 체크할 수 있도록 해주세요
     document.querySelectorAll('.fx7hk > a').forEach(el => {
         el.addEventListener('click',handler)
     })
-})()
+})();
 
 </script>
 <!-- 뷰모델 종료 -->
